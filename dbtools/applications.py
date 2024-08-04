@@ -112,3 +112,14 @@ class Applications:
         pct = (accepted_df.shape[0] / not_pending_df.shape[0]) * 100 if not_pending_df.shape[0] else 0.0
 
         return accepted_df.shape[0], not_pending_df.shape[0], round(pct, 2)
+    
+    def get_application_counts(self, cycle):
+
+        cycle_df = self.get_cycle_df(cycle)
+        cycle_df["Date"] = pd.to_datetime(cycle_df["Date"]).dt.date
+
+        apps_over_time = cycle_df["Date"].value_counts().sort_index()
+        apps_over_time = apps_over_time.rename_axis("Date").reset_index(name="Applications")
+        apps_over_time["Cumulative Applications"] = apps_over_time["Applications"].cumsum()
+
+        return apps_over_time
