@@ -56,12 +56,17 @@ class Applications:
         self.cursor.execute(add_query, app_info)
         self.connection.commit()
     
-    def update_table(self, table_name, df):
+    def update_table(self, table_name, updates):
         
         table_name = "_".join(table_name.split(" ")).lower()
-        self.cursor.execute(f"DELETE FROM {table_name}")
-        df.to_sql(table_name, self.connection, if_exists='append', index=False)
-        print(f"HERE ARE THE UPDATED ROWS: {self.cursor.fetchall()}")
+        edited_rows = updates["edited_rows"]
+
+        for idx, edits in edited_rows.items(): 
+            row_id = idx + 1
+            for col, new_val in edits.items(): 
+                update_query = f'UPDATE {table_name} SET {col} = "{new_val}" WHERE id = {row_id}'
+                self.cursor.execute(update_query)
+        
         self.connection.commit()
 
     def get_applications(self):
@@ -75,8 +80,35 @@ class Applications:
             full_name = " ".join(table_name.split("_")).title()
 
             df = pd.DataFrame(rows, columns=columns).set_index("ID")
-            # df["Date"] = pd.to_datetime(df["Date"], format="%Y-%m-%d").dt.floor("D")
             df = df.sort_values(by=["Date"], ascending=[True])
             all_applications[full_name] = df
 
         return all_applications
+    
+    def get_cycle_df(self, cycle):
+
+        all_applications = self.get_applications()
+
+        if cycle == "All Cycles": 
+            return pd.concat([df for df in all_applications.values()], axis=0)
+        
+        return all_applications[cycle]
+    
+    def get_response_rate(self, cycle):
+
+        cycle_df = self.get_cycle_df(cycle)
+        not_pending_df = cycle_df[cycle_df["Status"] != "🕒 Pending"]
+
+        pct = (not_pending_df.shape[0] / cycle_df.shape[0]) * 100 if cycle_df.shape[0] else 0.0
+
+        return not_pending_df.shape[0], cycle_df.shape[0], round(pct, 2)
+    
+    def get_acceptance_rate(self, cycle):
+        
+        cycle_df = self.get_cycle_df(cycle)
+        not_pending_df = cycle_df[~cycle_df["Status"].isin(["🗣️ Interview", "🕒 Pending"])]
+        accepted_df = not_pending_df[not_pending_df["Status"] == "🎉 Accepted"]
+
+        pct = (accepted_df.shape[0] / not_pending_df.shape[0]) * 100 if not_pending_df.shape[0] else 0.0
+
+        return accepted_df.shape[0], not_pending_df.shape[0], round(pct, 2)
