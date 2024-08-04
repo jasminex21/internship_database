@@ -1,5 +1,4 @@
 import yaml
-import datetime
 from datetime import date
 import streamlit as st
 import pandas as pd
@@ -15,7 +14,7 @@ st.set_page_config(layout='wide')
 CYCLES = ["Summer 2024", "Summer 2025"]
 TAGS = ["❤️ Favorite", "💜 Hopeful", "🙏 Long shot", "🌐 Remote", "🦸 Hybrid"]
 STATUSES = ["🕒 Pending", "🗣️ Interview", "⛔ Rejected", "🎉 Accepted"]
-DEFAULT_CYCLE = "Summer 2025"
+DEFAULT_CYCLE = "Summer 2024"
 
 ### SESSION STATES ###
 if "cycle" not in st.session_state:
@@ -68,8 +67,8 @@ def get_line_plot(apps_over_time):
                       yaxis_title="Applications",
                       hovermode='x unified')
     
-    fig.update_xaxes(tickformat="%m-%d",
-                     dtick="D1")
+    fig.update_xaxes(tickformat="%m-%d")
+                     # dtick="D5")
     return fig
 
 ### AUTHENTICATION ###
@@ -107,7 +106,7 @@ if st.session_state["authentication_status"]:
                              key="cycle")
                 st.date_input("Date applied", 
                               value="today", 
-                              min_value=datetime.date(datetime.datetime.now().year - 1, 1, 1),
+                              min_value=date(date.today().year - 1, 1, 1),
                               format="MM/DD/YYYY",
                               key="date")
                 st.text_input("Position*", 
@@ -166,10 +165,14 @@ if st.session_state["authentication_status"]:
         dynamic_table = st.data_editor(st.session_state.table_to_show, 
                                        column_config={"Tags": st.column_config.ListColumn(),
                                                       "Status": st.column_config.SelectboxColumn(options=STATUSES,required=True),
-                                                      "Link": st.column_config.LinkColumn(display_text="Link")}, 
+                                                      "Link": st.column_config.LinkColumn(display_text="Link"),
+                                                      "Date": st.column_config.DateColumn(min_value=date(date.today().year - 1, 1, 1),
+                                                                                          max_value=date.today(),
+                                                                                          format="YYYY-MM-DD")}, 
                                                       key="edited_table", 
                                                       use_container_width=True, 
-                                                      disabled=["ID", "Date"])
+                                                      disabled=["ID"], 
+                                                      height=600)
 
         if st.session_state.edited_table["edited_rows"]:
             with Applications(db_path="Applications.db", predefined_cycles=CYCLES) as applications: 

@@ -80,6 +80,7 @@ class Applications:
             full_name = " ".join(table_name.split("_")).title()
 
             df = pd.DataFrame(rows, columns=columns).set_index("ID")
+            df["Date"] = pd.to_datetime(df["Date"]).dt.date
             df = df.sort_values(by=["Date"], ascending=[True])
             all_applications[full_name] = df
 
