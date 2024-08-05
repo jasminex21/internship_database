@@ -1,11 +1,16 @@
 import sqlite3
+import os
 import pandas as pd
 
 class Applications: 
 
-    def __init__(self, db_path, predefined_cycles):
+    def __init__(self, dirpath, predefined_cycles):
         
-        self.db_path = db_path
+        if not os.path.isdir(dirpath):
+            print(f"Path {dirpath} does NOT exist")
+            os.makedirs(dirpath)
+
+        self.db_path = os.path.join(dirpath, "Applications.db")
         self.predefined_cycles = ["_".join(cycle.split(" ")) for cycle in predefined_cycles]
 
     def __enter__(self): 
@@ -13,6 +18,7 @@ class Applications:
         self.connection = sqlite3.connect(self.db_path)
         self.cursor = self.connection.cursor()
         self.create_tables()
+        self.create_settings()
         
         return self
 
@@ -27,6 +33,7 @@ class Applications:
         
         # returning each name as "Summer 2024", e.g., rather than "summer_2024"
         table_names = [table[0] for table in tables]
+        table_names.remove("user_settings")
         if "sqlite_sequence" in table_names:
             table_names.remove("sqlite_sequence")
         if full_names:
@@ -47,6 +54,26 @@ class Applications:
                     status TEXT NOT NULL)"""
             self.cursor.execute(create_query)
             self.connection.commit()
+
+    def create_settings(self):
+        create_query = f"""CREATE TABLE IF NOT EXISTS user_settings (
+                           id INTEGER PRIMARY KEY AUTOINCREMENT,
+                           default_cycle TEXT)"""
+        self.cursor.execute(create_query)
+        self.connection.commit()
+
+    def update_settings(self, setting, new_value):
+        # TODO: depending on if there are other settings to add, this will probs. need fixing
+        update_query = f"REPLACE INTO user_settings (id, {setting}) VALUES (1, '{new_value}')"
+        self.cursor.execute(update_query)
+        self.connection.commit()
+
+    def get_setting(self, setting): 
+        get_query = f"SELECT {setting} from user_settings LIMIT 1"
+        self.cursor.execute(get_query)
+
+        result = self.cursor.fetchone()
+        return result[0] if result else None
     
     def add_entry(self, table_name, app_info):
 
@@ -56,13 +83,13 @@ class Applications:
         self.cursor.execute(add_query, app_info)
         self.connection.commit()
     
-    def update_table(self, table_name, updates):
+    def update_table(self, table_name, df, updates):
         
         table_name = "_".join(table_name.split(" ")).lower()
         edited_rows = updates["edited_rows"]
 
         for idx, edits in edited_rows.items(): 
-            row_id = idx + 1
+            row_id = df.index[idx]
             for col, new_val in edits.items(): 
                 update_query = f'UPDATE {table_name} SET {col} = "{new_val}" WHERE id = {row_id}'
                 self.cursor.execute(update_query)
