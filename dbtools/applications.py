@@ -1,13 +1,13 @@
 import sqlite3
 import os
 import pandas as pd
+from datetime import datetime, date
 
 class Applications: 
 
     def __init__(self, dirpath, predefined_cycles):
         
         if not os.path.isdir(dirpath):
-            print(f"Path {dirpath} does NOT exist")
             os.makedirs(dirpath)
 
         self.db_path = os.path.join(dirpath, "Applications.db")
@@ -26,6 +26,10 @@ class Applications:
 
         self.connection.close()
     
+    def _get_db_cycle(self, cycle):
+        
+        return "_".join(cycle.split(" ")).lower()
+    
     def get_table_names(self, full_names=False):
         
         self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
@@ -43,17 +47,27 @@ class Applications:
     def create_tables(self): 
         
         for cycle in self.predefined_cycles: 
-            create_query = f"""CREATE TABLE IF NOT EXISTS {cycle} (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    date TEXT NOT NULL,
-                    position TEXT NOT NULL,
-                    company TEXT NOT NULL,
-                    description TEXT,
-                    link TEXT,
-                    tags TEXT,
-                    status TEXT NOT NULL)"""
-            self.cursor.execute(create_query)
-            self.connection.commit()
+            self.add_cycle(cycle)
+    
+    def add_cycle(self, cycle_name):
+        cycle_name = self._get_db_cycle(cycle_name)
+        create_query = f"""CREATE TABLE IF NOT EXISTS {cycle_name} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        position TEXT NOT NULL,
+        company TEXT NOT NULL,
+        description TEXT,
+        link TEXT,
+        tags TEXT,
+        status TEXT NOT NULL)"""
+        self.cursor.execute(create_query)
+        self.connection.commit()
+
+    def delete_cycle(self, cycle_name): 
+        cycle_name = self._get_db_cycle(cycle_name)
+        delete_query = f"DROP TABLE {cycle_name}"
+        self.cursor.execute(delete_query)
+        self.connection.commit()
 
     def create_settings(self):
         create_query = f"""CREATE TABLE IF NOT EXISTS user_settings (
@@ -77,7 +91,7 @@ class Applications:
     
     def add_entry(self, table_name, app_info):
 
-        table_name = "_".join(table_name.split(" ")).lower()
+        table_name = self._get_db_cycle(table_name)
         add_query = f"""INSERT INTO {table_name} (date, position, company, description, link, tags, status)
                         VALUES (?, ?, ?, ?, ?, ?, ?)"""
         self.cursor.execute(add_query, app_info)
@@ -85,7 +99,7 @@ class Applications:
     
     def update_table(self, table_name, df, updates):
         
-        table_name = "_".join(table_name.split(" ")).lower()
+        table_name = self._get_db_cycle(table_name)
         edited_rows = updates["edited_rows"]
 
         for idx, edits in edited_rows.items(): 
@@ -135,7 +149,7 @@ class Applications:
         
         cycle_df = self.get_cycle_df(cycle)
         not_pending_df = cycle_df[~cycle_df["Status"].isin(["🗣️ Interview", "🕒 Pending"])]
-        accepted_df = not_pending_df[not_pending_df["Status"] == "🎉 Accepted"]
+        accepted_df = not_pending_df[not_pending_df["Status"].isin(["💸 Offer", "🎉 Accepted Offer"])]
 
         pct = (accepted_df.shape[0] / not_pending_df.shape[0]) * 100 if not_pending_df.shape[0] else 0.0
 
@@ -151,3 +165,26 @@ class Applications:
         apps_over_time["Cumulative Applications"] = apps_over_time["Applications"].cumsum()
 
         return apps_over_time
+    
+    def get_average_apps(self, cycle):
+        
+        application_counts = self.get_application_counts(cycle)
+        if application_counts.shape[0]:
+            started_date = application_counts["Date"][0]
+            today_date = date.today()
+            day_delta = (today_date - started_date).days
+
+            try:
+                apps_today = application_counts[application_counts["Date"] == today_date]["Applications"].values[0]
+                # minus 2 as to not include the current date - average is up and not including
+                cumulative_apps = application_counts["Cumulative Applications"][application_counts.shape[0] - 2]
+            except IndexError:
+                apps_today = 0
+                cumulative_apps = application_counts["Cumulative Applications"][application_counts.shape[0] - 1]
+            avg_apps_per_day = round(cumulative_apps / day_delta, 2)
+            
+        else: 
+            avg_apps_per_day = 0.0
+            apps_today = 0
+
+        return apps_today, avg_apps_per_day
