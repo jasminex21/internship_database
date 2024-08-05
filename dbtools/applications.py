@@ -19,6 +19,7 @@ class Applications:
         self.cursor = self.connection.cursor()
         self.create_tables()
         self.create_settings()
+        self.create_statuses()
         
         return self
 
@@ -28,7 +29,7 @@ class Applications:
     
     def _get_db_cycle(self, cycle):
         
-        return "_".join(cycle.split(" ")).lower()
+        return "_".join(cycle.split(" "))
     
     def get_table_names(self, full_names=False):
         
@@ -38,6 +39,7 @@ class Applications:
         # returning each name as "Summer 2024", e.g., rather than "summer_2024"
         table_names = [table[0] for table in tables]
         table_names.remove("user_settings")
+        table_names.remove("cycle_statuses")
         if "sqlite_sequence" in table_names:
             table_names.remove("sqlite_sequence")
         if full_names:
@@ -75,6 +77,35 @@ class Applications:
                            default_cycle TEXT)"""
         self.cursor.execute(create_query)
         self.connection.commit()
+
+    def create_statuses(self):
+        create_query = f"""CREATE TABLE IF NOT EXISTS cycle_statuses (
+                           cycle TEXT UNIQUE NOT NULL,
+                           is_active BOOLEAN NOT NULL)"""
+        self.cursor.execute(create_query)
+        self.connection.commit()
+    
+    def update_statuses(self, active_cycles):
+        cycles = self.get_table_names()
+        active_cycles = [self._get_db_cycle(cycle).lower() for cycle in active_cycles]
+        print(f"CYCLES {cycles}")
+        print(f"ACTIVES {active_cycles}")
+        for cycle in cycles: 
+            update_query = f"REPLACE INTO cycle_statuses (cycle, is_active) VALUES (?, ?)"
+            if cycle.lower() in active_cycles:
+                status = 1
+            else: 
+                status = 0
+            self.cursor.execute(update_query, (cycle, status))
+            self.connection.commit()
+
+    def get_active_cycles(self):
+        
+        get_query = f"SELECT cycle FROM cycle_statuses WHERE is_active = 1"
+        self.cursor.execute(get_query)
+        active_cycles = self.cursor.fetchall()
+
+        return [" ".join(active[0].split("_")).title() for active in active_cycles]
 
     def update_settings(self, setting, new_value):
         # TODO: depending on if there are other settings to add, this will probs. need fixing
@@ -169,20 +200,25 @@ class Applications:
     def get_average_apps(self, cycle):
         
         application_counts = self.get_application_counts(cycle)
+
         if application_counts.shape[0]:
+            if cycle in self.get_active_cycles(): 
+                end_date = date.today()
+            else: 
+                end_date = application_counts["Date"][application_counts.shape[0] - 1]
+
             started_date = application_counts["Date"][0]
-            today_date = date.today()
-            day_delta = (today_date - started_date).days
+            day_delta = (end_date - started_date).days
 
             try:
-                apps_today = application_counts[application_counts["Date"] == today_date]["Applications"].values[0]
+                apps_today = application_counts[application_counts["Date"] == end_date]["Applications"].values[0]
                 # minus 2 as to not include the current date - average is up and not including
                 cumulative_apps = application_counts["Cumulative Applications"][application_counts.shape[0] - 2]
             except IndexError:
                 apps_today = 0
                 cumulative_apps = application_counts["Cumulative Applications"][application_counts.shape[0] - 1]
             avg_apps_per_day = round(cumulative_apps / day_delta, 2)
-            
+
         else: 
             avg_apps_per_day = 0.0
             apps_today = 0

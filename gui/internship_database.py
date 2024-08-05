@@ -155,6 +155,7 @@ if st.session_state["authentication_status"]:
         cycles = applications.get_table_names(full_names=True)
         default = applications.get_setting("default_cycle")
         DEFAULT_CYCLE = default if default else DEFAULT_CYCLE
+        ACTIVE_CYCLES = applications.get_active_cycles()
 
     with st.sidebar: 
         add_tab, settings_tab = st.tabs(["Add Application", "Settings"])
@@ -211,7 +212,7 @@ if st.session_state["authentication_status"]:
                     app_form.error("One or more required fields not filled.")
         
         with settings_tab:
-            st.markdown("### Application Database Settings")
+            st.markdown("# Application Database Settings")
             st.selectbox(f"Default application cycle (currently {DEFAULT_CYCLE})", 
                          options=cycles,
                          index=None,
@@ -221,9 +222,11 @@ if st.session_state["authentication_status"]:
             if submit_default_cycle: 
                 with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
                     applications.update_settings("default_cycle", new_value=st.session_state.default_cycle) 
-                    st.rerun()
+                    st.success(f"Cycle {st.session_state.default_cycle} set as default cycle. Refresh to view changes.")
+
+            st.divider()
             
-            st.text_input(f"Add application cycle",
+            st.text_input(f"Add application cycle (enter to submit)",
                           placeholder="e.g. Fall 2024",
                           key="cycle_to_add", 
                           on_change=clear_cycle)
@@ -248,6 +251,17 @@ if st.session_state["authentication_status"]:
                 with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
                         applications.delete_cycle(st.session_state.cycle_to_delete)
                 st.warning(f"Cycle {st.session_state.cycle_to_delete} deleted. Refresh to view changes.")
+
+            st.divider()
+
+            st.multiselect("Currently active cycles", 
+                           options=cycles, 
+                           default=ACTIVE_CYCLES,
+                           key="active_cycles")
+            submit_active_cycles = st.button("Set active cycle(s)")
+            if submit_active_cycles:
+                with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications:
+                    applications.update_statuses(st.session_state.active_cycles)
 
     database_tab, stats_tab, resources_tab = st.tabs(["Your Internships", "Statistics and Trends", "Resources"])
     with database_tab: 
@@ -282,7 +296,7 @@ if st.session_state["authentication_status"]:
         col1.selectbox("Application cycle", 
                        options=cycles + ["All Cycles"],
                        key="stats_cycle", 
-                       index=cycles.index(st.session_state.cycle) if st.session_state.cycle else len(cycles) - 1)
+                       index=cycles.index(DEFAULT_CYCLE))
         st.markdown(f"### Your {st.session_state.stats_cycle} Statistics")
 
         with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
@@ -327,34 +341,44 @@ if st.session_state["authentication_status"]:
         st.plotly_chart(get_line_plot(apps_over_time))
     
         with resources_tab:
+            status = "Active" if DEFAULT_CYCLE in ACTIVE_CYCLES else "Inactive"
             st.markdown(f"### Hello, {st.session_state.name} ({st.session_state.username})!")
             # TODO: add start and end date of cycle here
-            st.markdown(f"Your current cycle is {DEFAULT_CYCLE}")
             authenticator.logout(location="main", key="logout_button")
+            st.markdown(f"### Your current cycle is {DEFAULT_CYCLE} [{status}]")
+            st.caption("You can change your default cycle in the Settings tab.")
 
             with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
                 apps_today, avg_apps = applications.get_average_apps(DEFAULT_CYCLE)
             
-            avg_col, today_col = st.columns(2)
-            diff = apps_today - avg_apps
-            if diff < 0: 
-                delt = f"-You are {-diff} applications below your daily average"
-                delt_col = "normal"
-            elif diff > 0: 
-                delt = f"You are {diff} applications above your daily average!"
-                delt_col = "normal"
-            elif diff == 0: 
-                delt = "You have matched your daily average!"
-                delt_col = "off"
-            avg_col.metric(label="Average applications per day", 
-                      value=avg_apps,
-                      delta=delt, 
-                      delta_color=delt_col,
-                      help="The daily average does *not* include the current day.")
-            if apps_today > 0: 
-                today_delt = "Well done for applying today!"
+            if status == "Active":
+                avg_col, today_col = st.columns(2)
+                diff = apps_today - avg_apps
+                if diff < 0: 
+                    delt = f"-You are {-round(diff, 2)} applications below your daily average"
+                    delt_col = "normal"
+                elif diff > 0: 
+                    delt = f"You are {round(diff, 2)} applications above your daily average!"
+                    delt_col = "normal"
+                elif diff == 0: 
+                    delt = "You have matched your daily average!"
+                    delt_col = "off"
+                avg_col.metric(label="Average applications per day", 
+                        value=avg_apps,
+                        delta=delt, 
+                        delta_color=delt_col,
+                        help="The daily average does *not* include the current day.")
+                if apps_today > 0: 
+                    today_delt = "Well done for applying today!"
+                else: 
+                    today_delt = "-Take some time to apply to something today!"
+                today_col.metric(label="Applications today",
+                                value=apps_today, 
+                                delta=today_delt)
             else: 
-                today_delt = "-Take some time to apply to something today!"
-            today_col.metric(label="Applications today",
-                             value=apps_today, 
-                             delta=today_delt)
+                avg_col, total_col = st.columns(2)
+                avg_col.metric(label="Average applications per day",
+                          value=avg_apps)
+                total_apps = apps_over_time["Cumulative Applications"][apps_over_time.shape[0] - 1]
+                total_col.metric(label="Total applications", 
+                          value=total_apps)
