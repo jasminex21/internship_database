@@ -13,17 +13,61 @@ st.set_page_config(layout='wide')
 
 ### GLOBAL VARIABLES ###
 CYCLES = ["Summer 2024", "Summer 2025"]
-TAGS = ["❤️ Favorite", "💜 Hopeful", "🙏 Long shot", "🌐 Remote", "🦸 Hybrid", "Abroad"]
-STATUSES = ["🕒 Pending", "🗣️ Interview", "⛔ Rejected", "🎉 Accepted"]
+TAGS = ["❤️ Favorite", "💜 Hopeful", "🙏 Long shot", "🌐 Remote", "🦸 Hybrid", "🌏 Abroad"]
+STATUSES = ["🕒 Pending", "🗣️ Interview", "❌ Rejected after Interview", "⛔ Straight Rejection", "💸 Offer", "🎉 Accepted Offer"]
 DEFAULT_CYCLE = "Summer 2024"
+# THEME = {"background_color": "#082D1B",
+#          "button_color": "#0E290E",
+#          "inputs": "#547054",
+#          "text_color": "white"}
+THEME = {"background_color": "#212145",
+         "button_color": "#1D1D34",
+         "inputs": "#4e4466",
+         "text_color": "white"}
 
 ### SESSION STATES ###
 if "cycle" not in st.session_state:
     st.session_state.cycle = DEFAULT_CYCLE
 if "display_cycle" not in st.session_state:
     st.session_state.display_cycle = DEFAULT_CYCLE
+if "added_cycle" not in st.session_state:
+    st.session_state.added_cycle = ""
 
 ### FUNCTIONS ###
+def apply_theme(selected_theme):
+    css = f"""
+    <style>
+    .stApp > header {{
+        background-color: transparent;
+    }}
+    .stApp {{
+        color: {selected_theme["text_color"]};
+        font-family: "Helvetica", "Arial", sans-serif;
+    }}
+    button[data-baseweb="tab"] {{
+        background-color: transparent !important;
+    }}
+    div[data-baseweb="select"] > div, div[data-baseweb="base-input"] > input, div[data-baseweb="base-input"] > textarea {{
+        color: {selected_theme["text_color"]};
+        -webkit-text-fill-color: {selected_theme["text_color"]} !important;
+        font-weight: 600 !important;
+    }}
+    p, ul, li {{
+        color: {selected_theme["text_color"]};
+        font-weight: 600 !important;
+        font-size: large !important;
+    }}
+    h3, h2, h1, strong, h4 {{
+        color: {selected_theme["text_color"]};
+        font-weight: 900 !important;
+    }}
+    [data-baseweb="tag"] {{
+        color: {selected_theme["text_color"]};
+    }}
+    </style>
+    """
+    st.markdown(css, unsafe_allow_html=True)
+
 def get_shown_table():
 
     with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
@@ -35,13 +79,19 @@ def set_shown_table():
 
     st.session_state.table_to_show = get_shown_table()
 
-def get_donut(labels, values, colors, title):
+def get_donut(labels, values, counts, colors, title):
 
     fig = go.Figure(data=[go.Pie(labels=labels, 
                                  values=values, 
                                  hole=.3, 
+                                 hovertext=[f"{cnt} applications" for cnt in counts],
+                                 hoverinfo='label+text',
+                                 # hovertemplate='%<b>{labels}</b><br>%{customdata}',
                                  marker=dict(colors=colors))]) 
-    fig.update_layout(title=title)
+    fig.update_layout(title=title,
+                      paper_bgcolor='rgba(0,0,0,0)',  
+                      plot_bgcolor='rgba(0,0,0,0)')
+    fig.update_traces(marker=dict(line=dict(color="black", width=1)))
 
     return fig
 
@@ -52,22 +102,30 @@ def get_line_plot(apps_over_time):
         x=apps_over_time["Date"],
         y=apps_over_time["Applications"],
         name="Applications by date",
-        hovertemplate="%{y} applications"
+        hovertemplate="%{y} applications",
+        line=dict(width=4)
     ))
     fig.add_trace(go.Scatter(
         x=apps_over_time["Date"],
         y=apps_over_time["Cumulative Applications"],
         name="Cumulative applications",
-        hovertemplate="%{y} applications"
+        hovertemplate="%{y} applications",
+        line=dict(width=4)
     ))
     fig.update_layout(title="Applications over time",
                       xaxis_title="Date",
                       yaxis_title="Applications",
-                      hovermode='x unified')
+                      hovermode='x unified',
+                      paper_bgcolor='rgba(0,0,0,0)', 
+                      plot_bgcolor='rgba(0,0,0,0)')
     
     fig.update_xaxes(tickformat="%m-%d")
                      # dtick="D5")
     return fig
+
+def clear_cycle(): 
+    st.session_state.added_cycle = st.session_state.cycle_to_add
+    st.session_state.cycle_to_add = ""
 
 ### AUTHENTICATION ###
 with open("/home/jasmine/PROJECTS/internship_database/gui/credentials.yaml") as file:
@@ -81,6 +139,8 @@ authenticator = stauth.Authenticate(
     config['pre-authorized'])
 
 st.title("Internship Database")
+
+apply_theme(THEME)
 
 authenticator.login()
 
@@ -157,21 +217,47 @@ if st.session_state["authentication_status"]:
                          index=None,
                          placeholder="Select an application cycle",
                          key="default_cycle")
-            submit_default_cycle = st.button("Submit")
+            submit_default_cycle = st.button("Set default cycle")
             if submit_default_cycle: 
                 with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
                     applications.update_settings("default_cycle", new_value=st.session_state.default_cycle) 
                     st.rerun()
+            
+            st.text_input(f"Add application cycle",
+                          placeholder="e.g. Fall 2024",
+                          key="cycle_to_add", 
+                          on_change=clear_cycle)
+            
+            if st.session_state.added_cycle: 
+                if st.session_state.added_cycle not in cycles:
+                    with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
+                        applications.add_cycle(st.session_state.added_cycle)
+                    st.success(f"Cycle {st.session_state.added_cycle} successfully added. Refresh to view changes.")
+                    st.session_state.added_cycle = ""
+                else: 
+                    st.error(f"Cycle {st.session_state.added_cycle} already exists.")
+
+            st.selectbox(f"[PERMANENT ACTION]: Delete application cycle", 
+                options=cycles,
+                index=None,
+                placeholder="Select an application cycle",
+                key="cycle_to_delete")
+            submit_delete_cycle = st.button("Delete cycle")
+
+            if submit_delete_cycle:
+                with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
+                        applications.delete_cycle(st.session_state.cycle_to_delete)
+                st.warning(f"Cycle {st.session_state.cycle_to_delete} deleted. Refresh to view changes.")
 
     database_tab, stats_tab, resources_tab = st.tabs(["Your Internships", "Statistics and Trends", "Resources"])
     with database_tab: 
         col1, col2, col3 = st.columns(3)
-        cycle_to_show = col1.selectbox("Application cycle", 
+        col1.selectbox("Application cycle", 
                        options=cycles,
                        key="to_show_cycle", 
                        index=cycles.index(DEFAULT_CYCLE))
-                       # on_change=set_shown_table)
-        if cycle_to_show: 
+        
+        if st.session_state.to_show_cycle != st.session_state.display_cycle:
             st.session_state.display_cycle = st.session_state.to_show_cycle
             set_shown_table()
         st.markdown(f"### Your {st.session_state.display_cycle} Applications")
@@ -216,9 +302,11 @@ if st.session_state["authentication_status"]:
                             delta_color="off")
         response_labels = ["Response", "No response"]
         response_values = [response_rate, 100 - response_rate]
+        response_counts = [response_numerator, response_denominator - response_numerator]
         response_colors = ["Plum", "LightSalmon"]
         response_col.plotly_chart(get_donut(response_labels,
                                             response_values,
+                                            response_counts,
                                             response_colors,
                                             "Response Rate"))
 
@@ -228,16 +316,45 @@ if st.session_state["authentication_status"]:
                               delta_color="normal")
         acceptance_labels = ["Accepted", "Rejected"]
         acceptance_values = [acceptance_rate, 100 - acceptance_rate]
+        acceptance_counts = [acceptance_numerator, acceptance_denominator - acceptance_numerator]
         acceptance_colors = olors=["#637C63", "IndianRed"]
         acceptance_col.plotly_chart(get_donut(acceptance_labels, 
                                               acceptance_values, 
+                                              acceptance_counts,
                                               acceptance_colors, 
                                               "Acceptance Rate"))
         
         st.plotly_chart(get_line_plot(apps_over_time))
     
         with resources_tab:
-            st.markdown(f"### Hello, {st.session_state.name}!")
+            st.markdown(f"### Hello, {st.session_state.name} ({st.session_state.username})!")
+            # TODO: add start and end date of cycle here
+            st.markdown(f"Your current cycle is {DEFAULT_CYCLE}")
             authenticator.logout(location="main", key="logout_button")
-            st.write(f"{st.session_state.username}")
-            st.write(f"You've applied to x internships today; your avg. number of applications per day is y.")
+
+            with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
+                apps_today, avg_apps = applications.get_average_apps(DEFAULT_CYCLE)
+            
+            avg_col, today_col = st.columns(2)
+            diff = apps_today - avg_apps
+            if diff < 0: 
+                delt = f"-You are {-diff} applications below your daily average"
+                delt_col = "normal"
+            elif diff > 0: 
+                delt = f"You are {diff} applications above your daily average!"
+                delt_col = "normal"
+            elif diff == 0: 
+                delt = "You have matched your daily average!"
+                delt_col = "off"
+            avg_col.metric(label="Average applications per day", 
+                      value=avg_apps,
+                      delta=delt, 
+                      delta_color=delt_col,
+                      help="The daily average does *not* include the current day.")
+            if apps_today > 0: 
+                today_delt = "Well done for applying today!"
+            else: 
+                today_delt = "-Take some time to apply to something today!"
+            today_col.metric(label="Applications today",
+                             value=apps_today, 
+                             delta=today_delt)
