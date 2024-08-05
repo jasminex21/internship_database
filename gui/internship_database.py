@@ -1,10 +1,11 @@
 import yaml
-from datetime import date
+import os
 import streamlit as st
-import pandas as pd
 import streamlit_authenticator as stauth
 import plotly.graph_objects as go
 from yaml.loader import SafeLoader
+from os.path import expanduser
+from datetime import date
 
 from dbtools.applications import Applications
 
@@ -12,29 +13,26 @@ st.set_page_config(layout='wide')
 
 ### GLOBAL VARIABLES ###
 CYCLES = ["Summer 2024", "Summer 2025"]
-TAGS = ["❤️ Favorite", "💜 Hopeful", "🙏 Long shot", "🌐 Remote", "🦸 Hybrid"]
+TAGS = ["❤️ Favorite", "💜 Hopeful", "🙏 Long shot", "🌐 Remote", "🦸 Hybrid", "Abroad"]
 STATUSES = ["🕒 Pending", "🗣️ Interview", "⛔ Rejected", "🎉 Accepted"]
 DEFAULT_CYCLE = "Summer 2024"
 
 ### SESSION STATES ###
 if "cycle" not in st.session_state:
-    st.session_state.cycle = CYCLES[-1]
+    st.session_state.cycle = DEFAULT_CYCLE
 if "display_cycle" not in st.session_state:
-    st.session_state.display_cycle = CYCLES[-1]
+    st.session_state.display_cycle = DEFAULT_CYCLE
 
 ### FUNCTIONS ###
 def get_shown_table():
 
-    with Applications(db_path="Applications.db", predefined_cycles=CYCLES) as applications: 
+    with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
         all_applications = applications.get_applications()
     
     return all_applications[st.session_state.display_cycle]
 
 def set_shown_table():
 
-    st.session_state.table_to_show = get_shown_table()
-
-if "table_to_show" not in st.session_state: 
     st.session_state.table_to_show = get_shown_table()
 
 def get_donut(labels, values, colors, title):
@@ -82,17 +80,21 @@ authenticator = stauth.Authenticate(
     config['cookie']['expiry_days'],
     config['pre-authorized'])
 
+st.title("Internship Database")
+
 authenticator.login()
 
 ### UI ###
-
-st.title("Internship Database")
-
 if st.session_state["authentication_status"]:
+    PATH = os.path.join(expanduser("~"), f"internship_database_{st.session_state.username}")
+
+    if "table_to_show" not in st.session_state: 
+        st.session_state.table_to_show = get_shown_table()
     # st.toast(f'Welcome {st.session_state["name"]}!', icon="👋")
-    # authenticator.logout(location="sidebar", key="logout_button")
-    with Applications(db_path="Applications.db", predefined_cycles=CYCLES) as applications: 
+    with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
         cycles = applications.get_table_names(full_names=True)
+        default = applications.get_setting("default_cycle")
+        DEFAULT_CYCLE = default if default else DEFAULT_CYCLE
 
     with st.sidebar: 
         add_tab, settings_tab = st.tabs(["Add Application", "Settings"])
@@ -132,9 +134,8 @@ if st.session_state["authentication_status"]:
                 submit_btn = st.form_submit_button("Submit")
         
         if submit_btn:
-            with Applications(db_path="Applications.db", predefined_cycles=CYCLES) as applications: 
+            with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
                 if (st.session_state.cycle) and (st.session_state.position) and (st.session_state.company):
-                    st.write(f"CYCLE {st.session_state.cycle}")
                     applications.add_entry(st.session_state.cycle, 
                                            (st.session_state.date, 
                                             st.session_state.position, 
@@ -144,22 +145,35 @@ if st.session_state["authentication_status"]:
                                             ", ".join(st.session_state.tags), 
                                             st.session_state.status))
                     all_applications = applications.get_applications()
-                    print(all_applications)
+                    st.session_state.display_cycle = st.session_state.cycle
                     set_shown_table()
                 else: 
                     app_form.error("One or more required fields not filled.")
         
         with settings_tab:
             st.markdown("### Application Database Settings")
+            st.selectbox(f"Default application cycle (currently {DEFAULT_CYCLE})", 
+                         options=cycles,
+                         index=None,
+                         placeholder="Select an application cycle",
+                         key="default_cycle")
+            submit_default_cycle = st.button("Submit")
+            if submit_default_cycle: 
+                with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
+                    applications.update_settings("default_cycle", new_value=st.session_state.default_cycle) 
+                    st.rerun()
 
     database_tab, stats_tab, resources_tab = st.tabs(["Your Internships", "Statistics and Trends", "Resources"])
     with database_tab: 
         col1, col2, col3 = st.columns(3)
-        col1.selectbox("Application cycle", 
+        cycle_to_show = col1.selectbox("Application cycle", 
                        options=cycles,
-                       key="display_cycle", 
-                       index=cycles.index(DEFAULT_CYCLE),
-                       on_change=set_shown_table)
+                       key="to_show_cycle", 
+                       index=cycles.index(DEFAULT_CYCLE))
+                       # on_change=set_shown_table)
+        if cycle_to_show: 
+            st.session_state.display_cycle = st.session_state.to_show_cycle
+            set_shown_table()
         st.markdown(f"### Your {st.session_state.display_cycle} Applications")
 
         dynamic_table = st.data_editor(st.session_state.table_to_show, 
@@ -171,12 +185,11 @@ if st.session_state["authentication_status"]:
                                                                                           format="YYYY-MM-DD")}, 
                                                       key="edited_table", 
                                                       use_container_width=True, 
-                                                      disabled=["ID"], 
-                                                      height=600)
+                                                      disabled=["ID"])
 
         if st.session_state.edited_table["edited_rows"]:
-            with Applications(db_path="Applications.db", predefined_cycles=CYCLES) as applications: 
-                applications.update_table(st.session_state.display_cycle, st.session_state.edited_table)
+            with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
+                applications.update_table(st.session_state.display_cycle, dynamic_table, st.session_state.edited_table)
 
     with stats_tab: 
         col1, col2, col3 = st.columns(3)
@@ -186,7 +199,7 @@ if st.session_state["authentication_status"]:
                        index=cycles.index(st.session_state.cycle) if st.session_state.cycle else len(cycles) - 1)
         st.markdown(f"### Your {st.session_state.stats_cycle} Statistics")
 
-        with Applications(db_path="Applications.db", predefined_cycles=CYCLES) as applications: 
+        with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
             (response_numerator, 
              response_denominator, 
              response_rate) = applications.get_response_rate(st.session_state.stats_cycle)
@@ -224,4 +237,7 @@ if st.session_state["authentication_status"]:
         st.plotly_chart(get_line_plot(apps_over_time))
     
         with resources_tab:
-            st.write("Resources will go here")
+            st.markdown(f"### Hello, {st.session_state.name}!")
+            authenticator.logout(location="main", key="logout_button")
+            st.write(f"{st.session_state.username}")
+            st.write(f"You've applied to x internships today; your avg. number of applications per day is y.")
