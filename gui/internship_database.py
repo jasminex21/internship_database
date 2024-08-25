@@ -232,7 +232,7 @@ if st.session_state["authentication_status"]:
                           on_change=clear_cycle)
             
             if st.session_state.added_cycle: 
-                if st.session_state.added_cycle not in cycles:
+                if st.session_state.added_cycle.lower() not in [cycle.lower() for cycle in cycles]:
                     with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
                         applications.add_cycle(st.session_state.added_cycle)
                     st.success(f"Cycle {st.session_state.added_cycle} successfully added. Refresh to view changes.")
@@ -307,6 +307,7 @@ if st.session_state["authentication_status"]:
              acceptance_denominator, 
              acceptance_rate) = applications.get_acceptance_rate(st.session_state.stats_cycle)
             apps_over_time = applications.get_application_counts(st.session_state.stats_cycle)
+            resources_df = applications.get_resources()
 
         response_col, acceptance_col = st.columns(2)
 
@@ -382,3 +383,18 @@ if st.session_state["authentication_status"]:
                 total_apps = apps_over_time["Cumulative Applications"][apps_over_time.shape[0] - 1]
                 total_col.metric(label="Total applications", 
                           value=total_apps)
+        
+            st.markdown("### Your Resources")
+            resources = st.data_editor(resources_df, 
+                                       num_rows="dynamic",
+                                       use_container_width=True, 
+                                       key="resources_edits", 
+                                       disabled=["ID"])
+            st.write(st.session_state.resources_edits)
+            st.write(st.session_state.resources_edits["added_rows"])
+
+            if st.session_state.resources_edits["added_rows"]:
+                with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
+                    for added in st.session_state.resources_edits["added_rows"]:
+                        if len(list(added.values())) == 2:
+                            applications.add_resources(tuple(added.values()))

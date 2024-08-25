@@ -20,6 +20,7 @@ class Applications:
         self.create_tables()
         self.create_settings()
         self.create_statuses()
+        self.create_resources()
         
         return self
 
@@ -40,6 +41,7 @@ class Applications:
         table_names = [table[0] for table in tables]
         table_names.remove("user_settings")
         table_names.remove("cycle_statuses")
+        table_names.remove("resources")
         if "sqlite_sequence" in table_names:
             table_names.remove("sqlite_sequence")
         if full_names:
@@ -84,12 +86,36 @@ class Applications:
                            is_active BOOLEAN NOT NULL)"""
         self.cursor.execute(create_query)
         self.connection.commit()
+
+    def create_resources(self):
+        create_query = f"""CREATE TABLE IF NOT EXISTS resources (
+                           link TEXT,
+                           notes TEXT)"""
+        self.cursor.execute(create_query)
+        self.connection.commit()
+
+    def add_resources(self, values):
+
+        add_query = f"""INSERT INTO resources (link, notes)
+                        VALUES (?, ?)"""
+        self.cursor.execute(add_query, values)
+        self.connection.commit()
+    
+    def get_resources(self): 
+        columns = ["Link", "Notes"]
+
+        get_query = f"SELECT * FROM resources"
+        self.cursor.execute(get_query)
+        rows = self.cursor.fetchall()
+
+        df = pd.DataFrame(rows, columns=columns)# .set_index("ID")
+        
+        return df
     
     def update_statuses(self, active_cycles):
         cycles = self.get_table_names()
         active_cycles = [self._get_db_cycle(cycle).lower() for cycle in active_cycles]
-        print(f"CYCLES {cycles}")
-        print(f"ACTIVES {active_cycles}")
+
         for cycle in cycles: 
             update_query = f"REPLACE INTO cycle_statuses (cycle, is_active) VALUES (?, ?)"
             if cycle.lower() in active_cycles:
@@ -212,7 +238,7 @@ class Applications:
 
             try:
                 apps_today = application_counts[application_counts["Date"] == end_date]["Applications"].values[0]
-                # minus 2 as to not include the current date - average is up and not including
+                # minus 2 as to not include the current date - average is up to and not including
                 cumulative_apps = application_counts["Cumulative Applications"][application_counts.shape[0] - 2]
             except IndexError:
                 apps_today = 0
@@ -224,3 +250,12 @@ class Applications:
             apps_today = 0
 
         return apps_today, avg_apps_per_day
+    
+    def add_resource(self, updates):
+        pass
+
+    def delete_resource(self, updates):
+        pass
+
+    def update_resource(self, updates):
+        pass
