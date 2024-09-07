@@ -1,8 +1,6 @@
-yaml
+pyyaml
 pandas
 streamlit
 streamlit_authenticator
 plotly
-sqlite3
-datetime
 -e .
