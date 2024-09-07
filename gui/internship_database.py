@@ -9,7 +9,9 @@ from datetime import date
 
 from dbtools.applications import Applications
 
-st.set_page_config(layout='wide')
+st.set_page_config(layout='wide',
+                   page_title="Internship Database",
+                   page_icon=":seedling:")
 
 ### GLOBAL VARIABLES ###
 CYCLES = ["Summer 2024", "Summer 2025"]
@@ -37,12 +39,14 @@ if "added_cycle" not in st.session_state:
 def apply_theme(selected_theme):
     css = f"""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+
     .stApp > header {{
         background-color: transparent;
     }}
     .stApp {{
         color: {selected_theme["text_color"]};
-        font-family: "Helvetica", "Arial", sans-serif;
+        font-family: 'Outfit', sans-serif;
     }}
     button[data-baseweb="tab"] {{
         background-color: transparent !important;
@@ -51,18 +55,22 @@ def apply_theme(selected_theme):
         color: {selected_theme["text_color"]};
         -webkit-text-fill-color: {selected_theme["text_color"]} !important;
         font-weight: 600 !important;
+        font-family: 'Outfit', sans-serif;
     }}
     p, ul, li {{
         color: {selected_theme["text_color"]};
         font-weight: 600 !important;
         font-size: large !important;
+        font-family: 'Outfit', sans-serif;
     }}
     h3, h2, h1, strong, h4 {{
         color: {selected_theme["text_color"]};
         font-weight: 900 !important;
+        font-family: 'Outfit', sans-serif;
     }}
     [data-baseweb="tag"] {{
         color: {selected_theme["text_color"]};
+        font-family: 'Outfit', sans-serif;
     }}
     </style>
     """
@@ -384,17 +392,17 @@ if st.session_state["authentication_status"]:
                 total_col.metric(label="Total applications", 
                           value=total_apps)
         
-            st.markdown("### Your Resources")
-            resources = st.data_editor(resources_df, 
-                                       num_rows="dynamic",
-                                       use_container_width=True, 
-                                       key="resources_edits", 
-                                       disabled=["ID"])
-            st.write(st.session_state.resources_edits)
-            st.write(st.session_state.resources_edits["added_rows"])
+            # st.markdown("### Your Resources")
+            # resources = st.data_editor(resources_df, 
+            #                            num_rows="dynamic",
+            #                            use_container_width=True, 
+            #                            key="resources_edits", 
+            #                            disabled=["ID"])
+            # st.write(st.session_state.resources_edits)
+            # st.write(st.session_state.resources_edits["added_rows"])
 
-            if st.session_state.resources_edits["added_rows"]:
-                with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
-                    for added in st.session_state.resources_edits["added_rows"]:
-                        if len(list(added.values())) == 2:
-                            applications.add_resources(tuple(added.values()))
+            # if st.session_state.resources_edits["added_rows"]:
+            #     with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
+            #         for added in st.session_state.resources_edits["added_rows"]:
+            #             if len(list(added.values())) == 2:
+            #                 applications.add_resources(tuple(added.values()))
