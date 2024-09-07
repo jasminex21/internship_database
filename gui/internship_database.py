@@ -136,7 +136,7 @@ def clear_cycle():
     st.session_state.cycle_to_add = ""
 
 ### AUTHENTICATION ###
-with open("/home/jasmine/PROJECTS/internship_database/gui/credentials.yaml") as file:
+with open("./gui/credentials.yaml") as file:
     config = yaml.load(file, Loader=SafeLoader)
 
 authenticator = stauth.Authenticate(
