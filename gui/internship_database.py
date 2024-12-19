@@ -137,7 +137,7 @@ def clear_cycle():
     st.session_state.cycle_to_add = ""
 
 ### AUTHENTICATION ###
-with open("./gui/credentials.yaml") as file:
+with open("./credentials/credentials.yaml") as file:
     config = yaml.load(file, Loader=SafeLoader)
 
 authenticator = stauth.Authenticate(
