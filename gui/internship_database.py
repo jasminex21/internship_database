@@ -15,7 +15,8 @@ st.set_page_config(layout='wide',
 
 ### GLOBAL VARIABLES ###
 CYCLES = ["Summer 2024", "Summer 2025"]
-TAGS = ["❤️ Favorite", "💜 Hopeful", "🙏 Long shot", "🌐 Remote", "🦸 Hybrid", "🌏 Abroad"]
+# TODO: add voided
+TAGS = ["❤️ Favorite", "💜 Hopeful", "🗣️ Networked", "🙏 Long shot", "🌐 Remote", "🦸 Hybrid", "🌏 Abroad"]
 STATUSES = ["🕒 Pending", "🗣️ Interview", "❌ Rejected after Interview", "⛔ Straight Rejection", "💸 Offer", "🎉 Accepted Offer"]
 DEFAULT_CYCLE = "Summer 2024"
 # THEME = {"background_color": "#082D1B",
@@ -293,7 +294,8 @@ if st.session_state["authentication_status"]:
                                                                                           format="YYYY-MM-DD")}, 
                                                       key="edited_table", 
                                                       use_container_width=True, 
-                                                      disabled=["ID"])
+                                                      disabled=["ID"],
+                                       height=700)
 
         if st.session_state.edited_table["edited_rows"]:
             with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
@@ -400,9 +402,11 @@ if st.session_state["authentication_status"]:
             #                            disabled=["ID"])
             # st.write(st.session_state.resources_edits)
             # st.write(st.session_state.resources_edits["added_rows"])
+            
+            # # includes additions, deletions, edits
+            # if st.session_state.resources_edits: 
+            #     with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications:
+            #         if st.session_state.resources_edits["added_rows"]:
+            #             for added in st.session_state.resources_edits["added_rows"]:
+            #                 applications.add_resources(tuple(added))
 
-            # if st.session_state.resources_edits["added_rows"]:
-            #     with Applications(dirpath=PATH, predefined_cycles=CYCLES) as applications: 
-            #         for added in st.session_state.resources_edits["added_rows"]:
-            #             if len(list(added.values())) == 2:
-            #                 applications.add_resources(tuple(added.values()))

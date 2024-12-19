@@ -88,21 +88,19 @@ class Applications:
         self.connection.commit()
 
     def create_resources(self):
-        create_query = f"""CREATE TABLE IF NOT EXISTS resources (
-                           link TEXT,
-                           notes TEXT)"""
+        create_query = f"""CREATE TABLE IF NOT EXISTS resources (notes TEXT)"""
         self.cursor.execute(create_query)
         self.connection.commit()
 
     def add_resources(self, values):
 
-        add_query = f"""INSERT INTO resources (link, notes)
-                        VALUES (?, ?)"""
+        add_query = f"""INSERT INTO resources (notes)
+                        VALUES (?,)"""
         self.cursor.execute(add_query, values)
         self.connection.commit()
     
     def get_resources(self): 
-        columns = ["Link", "Notes"]
+        columns = ["Notes"]
 
         get_query = f"SELECT * FROM resources"
         self.cursor.execute(get_query)
@@ -236,26 +234,41 @@ class Applications:
             started_date = application_counts["Date"][0]
             day_delta = (end_date - started_date).days
 
-            try:
+            if application_counts[application_counts["Date"] == end_date].shape[0]:
                 apps_today = application_counts[application_counts["Date"] == end_date]["Applications"].values[0]
-                # minus 2 as to not include the current date - average is up to and not including
                 cumulative_apps = application_counts["Cumulative Applications"][application_counts.shape[0] - 2]
-            except IndexError:
+            
+            else: 
                 apps_today = 0
                 cumulative_apps = application_counts["Cumulative Applications"][application_counts.shape[0] - 1]
-            avg_apps_per_day = round(cumulative_apps / day_delta, 2)
+
+            # try:
+            #     apps_today = application_counts[application_counts["Date"] == end_date]["Applications"].values[0]
+            #     # minus 2 as to not include the current date - average is up to and not including
+            #     cumulative_apps = application_counts["Cumulative Applications"][application_counts.shape[0] - 2]
+            # except KeyError:
+            #     apps_today = application_counts[application_counts["Date"] == end_date]["Applications"].values[0]
+            #     cumulative_apps = application_counts["Cumulative Applications"][application_counts.shape[0] - 1]
+            avg_apps_per_day = round(cumulative_apps / day_delta, 2) if day_delta else 0
 
         else: 
             avg_apps_per_day = 0.0
-            apps_today = 0
 
         return apps_today, avg_apps_per_day
     
     def add_resource(self, updates):
-        pass
+        
+        add_query = f"""INSERT INTO resources (notes)
+                        VALUES (?,)"""
+        self.cursor.execute(add_query, updates)
+        self.connection.commit()
 
     def delete_resource(self, updates):
+        # by index
         pass
 
     def update_resource(self, updates):
-        pass
+        # by index
+        # fetch the content at the index
+        resources = self.get_resources()
+        # TODO: delete the current resource table; create new one w only one column Notes
