@@ -17,7 +17,8 @@ st.set_page_config(layout='wide',
 CYCLES = ["Summer 2024", "Summer 2025"]
 # TODO: add voided
 TAGS = ["❤️ Favorite", "💜 Hopeful", "🗣️ Networked", "🙏 Long shot", "🌐 Remote", "🦸 Hybrid", "🌏 Abroad"]
-STATUSES = ["🕒 Pending", "🗣️ Interview", "❌ Rejected after Interview", "⛔ Straight Rejection", "💸 Offer", "🎉 Accepted Offer"]
+STATUSES = ["🕒 Pending", "📝 Assessment", "🗣️ Interview", "❌ Rejected after Assessment", 
+            "❌ Rejected after Interview", "⛔ Straight Rejection", "💸 Offer", "🎉 Accepted Offer"]
 DEFAULT_CYCLE = "Summer 2024"
 # THEME = {"background_color": "#082D1B",
 #          "button_color": "#0E290E",

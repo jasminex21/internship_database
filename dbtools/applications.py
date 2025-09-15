@@ -203,7 +203,7 @@ class Applications:
     def get_acceptance_rate(self, cycle):
         
         cycle_df = self.get_cycle_df(cycle)
-        not_pending_df = cycle_df[~cycle_df["Status"].isin(["🗣️ Interview", "🕒 Pending"])]
+        not_pending_df = cycle_df[~cycle_df["Status"].isin(["🗣️ Interview", "🕒 Pending", "📝 Assessment"])]
         accepted_df = not_pending_df[not_pending_df["Status"].isin(["💸 Offer", "🎉 Accepted Offer"])]
 
         pct = (accepted_df.shape[0] / not_pending_df.shape[0]) * 100 if not_pending_df.shape[0] else 0.0
